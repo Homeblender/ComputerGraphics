@@ -1,0 +1,180 @@
+﻿<html><body style="margin:0px;">
+    <script type="importmap">
+        {
+        "imports": {
+        "three": "./lib/three.module.js"
+        }
+        }
+    </script>
+
+    <script type="module">
+    // Начало программы.
+        import * as THREE from './lib/three.module.js';                                                      // Подключим бмблиотеки: трехмерной графики,
+        import { OrbitControls } from './lib/OrbitControls.js';                                              // вращения камеры мышью,
+        import { FBXLoader } from './lib/FBXLoader.js';                                                      // загрузки моделей в формате fbx.
+        import { GLTFLoader } from 'https://threejs.org/examples/jsm/loaders/GLTFLoader.js';                 // загрузки моделей в формате fbx.
+
+        let renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });                            // Объявить и создать объект управления ВК и включить сглаживание
+        renderer.setSize(window.innerWidth, window.innerHeight);                                             // Устанавливаем размеры рабочего окна,
+        renderer.info.autoReset = true;
+        renderer.shadowMap.enabled = true;                                                                   // подключаем тени.
+        document.body.appendChild(renderer.domElement);                                                      // Подключаем объект управления ВК к сайту.
+
+
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 5000);   // Создаём объект камеры, FoV=75, максимальная дальность отрисовки = 5000.
+        camera.position.z = 1;
+        camera.rotation.x = 1.16;
+        camera.rotation.y = -0.12;
+        camera.rotation.z = 0.27;
+
+
+        const controls = new OrbitControls(camera, renderer.domElement);                                     // Подключаем объект управления камерой,
+        controls.target.set(-200, 0, 0);                                                                     // и задаём направление камеры.
+        controls.update();
+
+        const scene = new THREE.Scene();                                                                     // Создаём объект сцены.
+
+        const hemiLight = new THREE.HemisphereLight(0xeeffff, 0x448888);                                     // Создаём источник света,
+        hemiLight.position.set(0, 20, 0);                                                                    // задаём его позицию
+        scene.add(hemiLight);                                                                                // и добавляем его на сцену.
+
+        let ambient = new THREE.AmbientLight(0x555555);
+        scene.add(ambient);
+
+        const dirLight = new THREE.DirectionalLight(0xffeedd);                                                 // Создаём направленный источник света,
+        dirLight.position.set(1000, 20, 10);                                                                   // затем адаём его позицию,
+        dirLight.castShadow = true;                                                                            // задаём отображение теней,
+        dirLight.shadow.mapSize.width = 1024 * 2;                                                              // указываем качество тени по ширине
+        dirLight.shadow.mapSize.height = 1024 * 2;                                                             // и высоте.
+        dirLight.shadow.camera.top = 50;                                                                       // Задаём раземеры области работы источника: верх,
+        dirLight.shadow.camera.bottom = - 50;                                                                  // низ,
+        dirLight.shadow.camera.left = - 50;                                                                    // влево,
+        dirLight.shadow.camera.right = 50;                                                                     // вправо
+        dirLight.shadow.camera.far = 1000;                                                                     // и силу этого источника.
+
+        scene.add(dirLight);                                                                                   // Добавляе источник направленного света на сцену.
+        //scene.add( new THREE.CameraHelper( dirLight.shadow.camera ) );                                       // Делаем видимость зоны работы этого источника.
+        scene.background = new THREE.Color(0xa0a0a0);
+        scene.fog = new THREE.Fog(0xa0a0a0, 50, 1500);
+
+        const clock = new THREE.Clock();                                                                       // Создаём объект часов
+
+        var flash = new THREE.PointLight(0x062d89, 30, 500, 1.7);
+        flash.position.set(200, 300, 100);
+        scene.add(flash);
+
+
+
+
+        window.addEventListener('resize', onWindowResize, false)
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.render(scene, camera);
+        }
+
+        const fbx_loader = new FBXLoader();                                                                    // Подключаем загрузчик fbx моделей.
+        const _loader = new GLTFLoader();                                                                      // Подключаем загрузчик fbx моделей.
+
+        let mixer;                                                                                             // Объявляем объект анимации для джокера.
+        var myObject;
+
+        _loader.load('models/Flamingo.glb', function (gltf) {
+            myObject = gltf.scene;
+            mixer = new THREE.AnimationMixer(gltf.scene);
+            let action = mixer.clipAction(gltf.animations[0]);
+            action.setLoop(THREE.LoopRepeat);
+            action.play();
+            scene.add(gltf.scene);
+            animation();
+        });
+       
+
+        fbx_loader.load('models/Ocean.fbx', function (object) {                                                // Загружаем модель
+            object.position.set(0, -200, 0);                                                                   // Устанавливаем позицию объекта,
+            object.scale.multiplyScalar(0.1);                                                                  // задаём размер
+            object.rotation.set(0, 0, 0, 'XYZ');                                                               // поворачиваем на нужный угол.
+            scene.add(object); // Добавляем объект на сцену.
+        });
+
+        
+        let loader = new THREE.TextureLoader();
+        let cloudGeo, cloudMaterial;
+        let cloudsParticle = [];
+        loader.load("models/smoke-1.png", function (texture) {
+            
+            cloudGeo = new THREE.PlaneBufferGeometry(500, 500);
+            cloudMaterial = new THREE.MeshLambertMaterial({
+                map: texture,
+                transparent: true
+            });
+
+            for (let p = 0; p < 25; p++) {
+                let cloud = new THREE.Mesh(cloudGeo, cloudMaterial);
+                cloud.position.set(
+                    Math.random() * 800 - 400,
+                    500,
+                    Math.random() * 500 - 450
+                );
+                cloud.rotation.x = 1.16;
+                cloud.rotation.y = -0.12;
+                cloud.rotation.z = Math.random() * 360;
+                cloud.material.opacity = 0.6;
+                scene.add(cloud);
+                cloudsParticle.push(cloud);
+            }
+        });
+
+        
+        var angle = 45;
+        function animation() {
+            requestAnimationFrame(animation);
+            var time = clock.getDelta();
+            if (mixer) {
+                mixer.update(time);
+            }
+            //Полёт птицы.
+            myObject.rotation.y -= .0355;
+            myObject.position.z += 10 * Math.sin(angle);
+            myObject.position.x += 10 * Math.cos(angle);
+            angle += Math.PI / 180 * 2;
+            //Вращение облака
+            cloudsParticle.forEach(p => {
+                p.rotation.z -= 0.002;
+            });
+            //Молнии
+            if (Math.random() > 0.93 || flash.power > 100) {
+                if (flash.power < 100)
+                    flash.position.set(
+                        3 * Math.random() * 400,
+                        1 * 300 + Math.random() * 200,
+                        100
+                    );
+                flash.power = 50 + Math.random() * 500;
+            }
+
+            console.log(camera.position);
+            console.log(camera.rotation);
+
+            
+
+            renderer.render(scene, camera);
+            controls.update();
+        }
+        document.addEventListener('keydown', onDocumentKeyDown, false);
+        function onDocumentKeyDown(event) {
+            if (event.code == 'KeyZ' && (event.ctrlKey || event.metaKey)) {
+                camera.position.x = - 217;
+                camera.position.y = - 113;
+                camera.position.z = 52;
+
+                camera.rotation.x = 1.14;
+                camera.rotation.y = - 0.1;
+                camera.rotation.z = 0.267;
+            }
+        }
+
+    </script>                                                                                                           
+</body>
+</html>
